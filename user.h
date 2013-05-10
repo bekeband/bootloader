@@ -6,7 +6,7 @@
  * These are the LED display's in/out lines.*/
 
 #define CAL_BRG(BAUD_RATE) ((FCY/(16*BAUD_RATE))-1)
-#define BAUDRATE 9600
+#define BAUDRATE 9600l
 #define BRGVAL          ((FCY/BAUDRATE)/16)-1
 
 #define H1_TRIS     TRISEbits.TRISE4

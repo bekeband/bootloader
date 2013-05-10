@@ -90,6 +90,20 @@ void DelayuSec(long usec)
     T2CONbits.TON = 0;
 }
 
+void DelaySec(int sec)
+{   uReg32 Delay;
+    Delay.Val32 = ((UWord32)(FCY)) * ((UWord32)(sec));
+    PR3 = Delay.Word.HW;
+    PR2 = Delay.Word.LW;
+
+    /* Enable Timer */
+    T2CONbits.TON = 1;
+
+    while (!IFS0bits.T3IF) ;
+    IFS0bits.T3IF = 0;
+    T2CONbits.TON = 0;
+}
+
 /******************************************************************************/
 /* Main Program                                                               */
 /******************************************************************************/
@@ -113,25 +127,15 @@ T2CONbits.T32 = 1; /* to increment every instruction cycle */
 IFS0bits.T3IF = 0; /* Clear the Timer3 Interrupt Flag */
 IEC0bits.T3IE = 0; /* Disable Timer3 Interrup Service Routine */
 
-//U1BRG  = BRGVAL;
-//U1BRG = 520;
-//U1MODE = 0x8400; /* Reset UART to 8-n-1, alt pins, and enable */
-//U1STA  = 0x0400; /* Reset status register and enable TX */
-
-//TRISFbits.TRISF3 = 0;   /* Setup for UART1 TX */
-//TRISFbits.TRISF2 = 1;   /* Setup for UART1 RX */
-//TRISFbits.TRISF5 = 0;   /* Setup data enabled for output */
-
 InitApp();
 U1RTS_LAT = 1;  /* Basically we waiting the reading character(s). */
 
 char HW[100]="Firmware loading program started.\0";
-//WriteString(HW);
 
 
 /*while (1)
 {
-    DelaymSec(1000);
+    DelaySec(2);
     WriteString(HW);
 };*/
 
@@ -151,8 +155,8 @@ while(1)
             GetChar(&(SourceAddr.Val[2]));
             ReadPM(Buffer, SourceAddr);
             WriteBuffer(Buffer, PM_ROW_SIZE * 3);
-/*
-            sprintf(HW, "SourceAddr: %i %i %i", SourceAddr.Val[0],
+
+/*            sprintf(HW, "SourceAddr: %i %i %i", SourceAddr.Val[0],
                 SourceAddr.Val[1], SourceAddr.Val[2]);
             DelayuSec(2000);
             WriteString(HW);*/
@@ -193,11 +197,11 @@ while(1)
 
             LoadAddr(SourceAddr.Word.HW,SourceAddr.Word.LW);
 
-            WriteMem(PM_ROW_ERASE);				/*Erase  page  */
+            WriteMem(PM_ROW_ERASE);         /*Erase  page  */
 
-            WritePM(Buffer, SourceAddr);		/*program page */
+            WritePM(Buffer, SourceAddr);    /*program page */
 
-            PutChar(COMMAND_ACK);				/*Send Acknowledgement */
+            PutChar(COMMAND_ACK);           /*Send Acknowledgement */
 
         break;
         }
