@@ -24,7 +24,7 @@ CLEAN_SUBPROJECTS=${CLEAN_SUBPROJECTS_${SUBPROJECTS}}
 
 
 # Project Name
-PROJECTNAME=BootLoader.X
+PROJECTNAME=bootloader.git
 
 # Active Configuration
 DEFAULTCONF=default
