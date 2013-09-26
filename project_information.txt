@@ -1,8 +1,8 @@
 <Application Description for Project Goes Here>
 
-Project Owner(s):
-Author(s):
-Hardware Platform:
+Project Owner(s):Beke András
+Author(s):  Beke András
+Hardware Platform: dsPIC30F3011 ELBAG LEVEL meter 786 controller board.
 Debuggers Used:
 Programmers Used:
 MPLAB Version:

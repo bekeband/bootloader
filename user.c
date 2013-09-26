@@ -9,6 +9,7 @@
 #include "user.h"            /* variables/params used by user.c               */
 #include "system.h"
 
+
 /******************************************************************************/
 /* User Functions                                                             */
 /******************************************************************************/
@@ -20,7 +21,9 @@ void UART1Conf()
     U1RXD_TRIS = 1;     // U1RXD set in input.
     U1TXD_TRIS = 0;     // U1TXD set output.
     U1RTS_TRIS = 0;     // U1RTS port set output.
-    U1MODEbits.ALTIO = 0;   // The U1TX, and U1RX port are used by UART module.
+//    U1MODEbits.ALTIO = 0;   // The U1TX, and U1RX port are used by UART module.
+    U1MODEbits.ALTIO = 1;   /* @TODO WARNING! The U1TX, and U1RX port are used by normal I/O ports. */
+
     U1MODEbits.PDSEL = 0b00;    // 8 bit, no parity
     U1MODEbits.STSEL = 0b0;     // 1 stop bit enought
     /* The default (power-on) setting of the UART is 8 bits, no parity,

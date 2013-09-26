@@ -1,0 +1,1190 @@
+Disassembly Listing for BootLoader
+Generated From:
+/home/bekeband/MPLABXProjects/bootloader.git/dist/default/debug/bootloader.git.debug.elf
+2013.09.26. 10:44:49
+
+---  /home/bekeband/MPLABXProjects/bootloader.git/user.c  -----------------------------------------------
+1:                 /******************************************************************************/
+2:                 /* Files to Include                                                           */
+3:                 /******************************************************************************/
+4:                 
+5:                 #include <p30Fxxxx.h>        /* Device header file                            */
+6:                 #include <stdint.h>          /* For uint32_t definition                       */
+7:                 #include <stdbool.h>         /* For true/false definition                     */
+8:                 
+9:                 #include "user.h"            /* variables/params used by user.c               */
+10:                #include "system.h"
+11:                
+12:                
+13:                /******************************************************************************/
+14:                /* User Functions                                                             */
+15:                /******************************************************************************/
+16:                
+17:                /* <Initialize variables in user.h and insert code for user algorithms.> */
+18:                void UART1Conf()
+19:                {
+00054C  FA0000     LNK #0x0
+20:                    U1MODEbits.UARTEN = 0;  // Disable UART1
+00054E  A9E20D     BCLR 0x20D, #7
+21:                    U1RXD_TRIS = 1;     // U1RXD set in input.
+000550  A842DE     BSET TRISF, #2
+22:                    U1TXD_TRIS = 0;     // U1TXD set output.
+000552  A962DE     BCLR TRISF, #3
+23:                    U1RTS_TRIS = 0;     // U1RTS port set output.
+000554  A9A2DE     BCLR TRISF, #5
+24:                //    U1MODEbits.ALTIO = 0;   // The U1TX, and U1RX port are used by UART module.
+25:                    U1MODEbits.ALTIO = 1;   /* @TODO WARNING! The U1TX, and U1RX port are used by normal I/O ports. */
+000556  A8420D     BSET 0x20D, #2
+26:                    return /* @TODO WARNING @PROBE*/
+27:                
+28:                    U1MODEbits.PDSEL = 0b00;    // 8 bit, no parity
+000558  801061     MOV U1MODE, W1
+00055A  2FFF90     MOV #0xFFF9, W0
+00055C  608000     AND W1, W0, W0
+00055E  881060     MOV W0, U1MODE
+29:                    U1MODEbits.STSEL = 0b0;     // 1 stop bit enought
+30:                    /* The default (power-on) setting of the UART is 8 bits, no parity,
+31:                     * 1 Stop bit (typically represented as 8, N, 1). */
+32:                
+33:                    /* Interrupt flag bit is set when a character is received */
+34:                    U1STAbits.URXISEL = 0b00;
+35:                
+36:                    /*ADDEN: Address Character Detect (bit 8 of received data = 1)
+37:                     * 1 = Address Detect mode enabled. If 9-bit mode is not selected, this
+38:                     * control bit has no effect. 0 = Address Detect mode disabled */
+39:                    U1STAbits.ADDEN = 0b0;
+40:                
+41:                    /* (FCY/(16*BAUD))-1*/
+42:                    U1BRG = BRGVAL;
+43:                            // CAL_BRG(2400);
+44:                
+45:                    U1MODEbits.UARTEN = 1; // Enable UART1 communication.
+46:                
+47:                        /* UART transmitter enabled, UxTX pin controlled by UART (if UARTEN = 1)*/
+48:                    U1STAbits.UTXEN = 1;
+49:                
+50:                }
+000560  FA8000     ULNK
+000562  060000     RETURN
+51:                
+52:                /* TODO Initialize User Ports/Peripherals/Project here */
+53:                
+54:                void InitApp(void)
+55:                {
+000564  FA0000     LNK #0x0
+56:                    /* Setup analog functionality and port direction */
+57:                    UART1Conf();
+000566  07FFF2     RCALL UART1Conf
+58:                    /* Initialize peripherals */
+59:                }
+000568  FA8000     ULNK
+00056A  060000     RETURN
+60:                
+---  /home/bekeband/MPLABXProjects/bootloader.git/traps.c  ----------------------------------------------
+1:                 /******************************************************************************/
+2:                 /* Files to Include                                                           */
+3:                 /******************************************************************************/
+4:                 
+5:                 #include <p30Fxxxx.h>      /* Device header file                              */
+6:                 #include <stdint.h>        /* Includes uint16_t definition                    */
+7:                 #include <stdbool.h>       /* Includes true/false definition                  */
+8:                 
+9:                 /******************************************************************************/
+10:                /* Trap Function Prototypes                                                   */
+11:                /******************************************************************************/
+12:                
+13:                /* <Other function prototypes for debugging trap code may be inserted here> */
+14:                
+15:                /* Use if INTCON2 ALTIVT=1 */
+16:                void __attribute__((interrupt,no_auto_psv)) _OscillatorFail(void);
+17:                void __attribute__((interrupt,no_auto_psv)) _AddressError(void);
+18:                void __attribute__((interrupt,no_auto_psv)) _StackError(void);
+19:                void __attribute__((interrupt,no_auto_psv)) _MathError(void);
+20:                
+21:                /* Use if INTCON2 ALTIVT=0 */
+22:                void __attribute__((interrupt,no_auto_psv)) _AltOscillatorFail(void);
+23:                void __attribute__((interrupt,no_auto_psv)) _AltAddressError(void);
+24:                void __attribute__((interrupt,no_auto_psv)) _AltStackError(void);
+25:                void __attribute__((interrupt,no_auto_psv)) _AltMathError(void);
+26:                
+27:                /* Default interrupt handler */
+28:                void __attribute__((interrupt,no_auto_psv)) _DefaultInterrupt(void);
+29:                
+30:                /******************************************************************************/
+31:                /* Trap Handling                                                              */
+32:                /*                                                                            */
+33:                /* These trap routines simply ensure that the device continuously loops       */
+34:                /* within each routine.  Users who actually experience one of these traps     */
+35:                /* can add code to handle the error.  Some basic examples for trap code,      */
+36:                /* including assembly routines that process trap sources, are available at    */
+37:                /* www.microchip.com/codeexamples                                             */
+38:                /******************************************************************************/
+39:                
+40:                /* Primary (non-alternate) address error trap function declarations */
+41:                void __attribute__((interrupt,no_auto_psv)) _OscillatorFail(void)
+42:                {
+000190  FA0000     LNK #0x0
+43:                        INTCON1bits.OSCFAIL = 0;        /* Clear the trap flag */
+000192  A92080     BCLR INTCON1, #1
+44:                        while(1);
+000194  37FFFF     BRA 0x194
+45:                }
+46:                
+47:                void __attribute__((interrupt,no_auto_psv)) _AddressError(void)
+48:                {
+000196  FA0000     LNK #0x0
+49:                        INTCON1bits.ADDRERR = 0;        /* Clear the trap flag */
+000198  A96080     BCLR INTCON1, #3
+50:                        while (1);
+00019A  37FFFF     BRA 0x19A
+51:                }
+52:                void __attribute__((interrupt,no_auto_psv)) _StackError(void)
+53:                {
+00019C  FA0000     LNK #0x0
+54:                        INTCON1bits.STKERR = 0;         /* Clear the trap flag */
+00019E  A94080     BCLR INTCON1, #2
+55:                        while (1);
+0001A0  37FFFF     BRA 0x1A0
+56:                }
+57:                
+58:                void __attribute__((interrupt,no_auto_psv)) _MathError(void)
+59:                {
+0001A2  FA0000     LNK #0x0
+60:                        INTCON1bits.MATHERR = 0;        /* Clear the trap flag */
+0001A4  A98080     BCLR INTCON1, #4
+61:                        while (1);
+0001A6  37FFFF     BRA 0x1A6
+62:                }
+63:                
+64:                /* Alternate address error trap function declarations */
+65:                void __attribute__((interrupt,no_auto_psv)) _AltOscillatorFail(void)
+66:                {
+0001A8  FA0000     LNK #0x0
+67:                        INTCON1bits.OSCFAIL = 0;        /* Clear the trap flag */
+0001AA  A92080     BCLR INTCON1, #1
+68:                        while (1);
+0001AC  37FFFF     BRA 0x1AC
+69:                }
+70:                
+71:                void __attribute__((interrupt,no_auto_psv)) _AltAddressError(void)
+72:                {
+0001AE  FA0000     LNK #0x0
+73:                        INTCON1bits.ADDRERR = 0;        /* Clear the trap flag */
+0001B0  A96080     BCLR INTCON1, #3
+74:                        while (1);
+0001B2  37FFFF     BRA 0x1B2
+75:                }
+76:                
+77:                void __attribute__((interrupt,no_auto_psv)) _AltStackError(void)
+78:                {
+0001B4  FA0000     LNK #0x0
+79:                        INTCON1bits.STKERR = 0;         /* Clear the trap flag */
+0001B6  A94080     BCLR INTCON1, #2
+80:                        while (1);
+0001B8  37FFFF     BRA 0x1B8
+81:                }
+82:                
+83:                void __attribute__((interrupt,no_auto_psv)) _AltMathError(void)
+84:                {
+0001BA  FA0000     LNK #0x0
+85:                        INTCON1bits.MATHERR = 0;        /* Clear the trap flag */
+0001BC  A98080     BCLR INTCON1, #4
+86:                        while (1);
+0001BE  37FFFF     BRA 0x1BE
+87:                }
+88:                
+89:                /******************************************************************************/
+90:                /* Default Interrupt Handler                                                  */
+91:                /*                                                                            */
+92:                /* This executes when an interrupt occurs for an interrupt source with an     */
+93:                /* improperly defined or undefined interrupt handling routine.                */
+94:                /******************************************************************************/
+95:                void __attribute__((interrupt,no_auto_psv)) _DefaultInterrupt(void)
+96:                {
+0001C0  FA0000     LNK #0x0
+97:                        while(1);
+0001C2  37FFFF     BRA 0x1C2
+98:                }
+99:                
+---  /home/bekeband/MPLABXProjects/bootloader.git/system.c  ---------------------------------------------
+1:                 /******************************************************************************/
+2:                 /* Files to Include                                                           */
+3:                 /******************************************************************************/
+4:                 
+5:                 #include <p30Fxxxx.h>        /* Device header file                            */
+6:                 #include <stdint.h>          /* For uint32_t definition                       */
+7:                 #include <stdbool.h>         /* For true/false definition                     */
+8:                 
+9:                 #include "system.h"          /* variables/params used by system.c             */
+10:                
+11:                /******************************************************************************/
+12:                /* System Level Functions                                                     */
+13:                /*                                                                            */
+14:                /* Custom oscillator configuration funtions, reset source evaluation          */
+15:                /* functions, and other non-peripheral microcontroller initialization         */
+16:                /* functions get placed in system.c                                           */
+17:                /*                                                                            */
+18:                /******************************************************************************/
+19:                
+20:                /* Refer to the device Family Reference Manual Oscillator section for
+21:                information about available oscillator configurations.  Typically
+22:                this would involve configuring the oscillator tuning register or clock
+23:                switching useing the compiler's __builtin_write_OSCCON functions.
+24:                Refer to the C Compiler for PIC24F MCUs and dsPIC DSCs User Guide in the
+25:                compiler installation directory /doc folder for documentation on the
+26:                __builtin functions. */
+27:                
+28:                /* TODO Add clock switching code if appropriate.  An example stub is below.   */
+29:                void ConfigureOscillator(void)
+30:                {
+000574  FA0000     LNK #0x0
+31:                #if 0
+32:                        /* Disable Watch Dog Timer */
+33:                        RCONbits.SWDTEN = 0;
+34:                
+35:                        /* When clock switch occurs switch to Pri Osc controlled by FPR<4:0> */
+36:                        __builtin_write_OSCCONH(0x03);  /* Set OSCCONH for clock switch */
+37:                        __builtin_write_OSCCONL(0x01);  /* Start clock switching */
+38:                        while(OSCCONbits.COSC != 0b011);
+39:                
+40:                        /* Wait for Clock switch to occur */
+41:                        /* Wait for PLL to lock, if PLL is used */
+42:                        /* while(OSCCONbits.LOCK != 1); */
+43:                #endif
+44:                
+45:                }
+000576  FA8000     ULNK
+000578  060000     RETURN
+46:                
+---  /home/bekeband/MPLABXProjects/bootloader.git/memory.s  ---------------------------------------------
+                                                  1:     ;********************************************************************
+                                                  2:     ; FileName:		memory.s
+                                                  3:     ; Dependencies:
+                                                  4:     ; Processor:		dsPIC30F Family
+                                                  5:     ; Hardware:		dsPICDEM 2
+                                                  6:     ; Assembler:		ASM30 2.14
+                                                  7:     ; Company:		Microchip Technology, Inc.
+                                                  8:     ;
+                                                  9:     ; Software License Agreement
+                                                  10:    ;
+                                                  11:    ; The software supplied herewith by Microchip Technology Incorporated
+                                                  12:    ; (the 'Company') for its PICmicro® Microcontroller is intended and
+                                                  13:    ; supplied to you, the Company's customer, for use solely and
+                                                  14:    ; exclusively on Microchip PICmicro Microcontroller products. The
+                                                  15:    ; software is owned by the Company and/or its supplier, and is
+                                                  16:    ; protected under applicable copyright laws. All rights are reserved.
+                                                  17:    ; Any use in violation of the foregoing restrictions may subject the
+                                                  18:    ; user to criminal sanctions under applicable laws, as well as to
+                                                  19:    ; civil liability for the breach of the terms and conditions of this
+                                                  20:    ; license.
+                                                  21:    ;
+                                                  22:    ; THIS SOFTWARE IS PROVIDED IN AN 'AS IS' CONDITION. NO WARRANTIES,
+                                                  23:    ; WHETHER EXPRESS, IMPLIED OR STATUTORY, INCLUDING, BUT NOT LIMITED
+                                                  24:    ; TO, IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+                                                  25:    ; PARTICULAR PURPOSE APPLY TO THIS SOFTWARE. THE COMPANY SHALL NOT,
+                                                  26:    ; IN ANY CIRCUMSTANCES, BE LIABLE FOR SPECIAL, INCIDENTAL OR
+                                                  27:    ; CONSEQUENTIAL DAMAGES, FOR ANY REASON WHATSOEVER.
+                                                  28:    ;
+                                                  29:    ;********************************************************************/
+                                                  30:    
+                                                  31:    .include "p30Fxxxx.inc"
+                                                  32:    
+                                                  33:    .global _LoadAddr,_WriteMem,_WriteLatch,_ReadLatch,_ResetDevice	;C called
+                                                  34:    
+                                                  35:    
+                                                  36:    _LoadAddr:	;W0=NVMADRU,W1=NVMADR - no return values
+00051A  883B20     MOV W0, NVMADRU                37:    	mov	W0,NVMADRU
+00051C  883B11     MOV W1, NVMADR                 38:    	mov	W1,NVMADR
+                                                  39:    
+00051E  060000     RETURN                         40:    	return
+                                                  41:    
+                                                  42:    ;***************************************************************
+                                                  43:    _WriteMem:	;W0=NVMCON - no return values
+000520  883B00     MOV W0, NVMCON                 44:    	mov	W0,NVMCON
+000522  200550     MOV #0x55, W0                  45:    	mov	#0x55,W0	;Unlock sequence - interrupts need to be off
+000524  883B30     MOV W0, NVMKEY                 46:    	mov	W0,NVMKEY
+000526  200AA0     MOV #0xAA, W0                  47:    	mov	#0xAA,W0
+000528  883B30     MOV W0, NVMKEY                 48:    	mov	W0,NVMKEY
+00052A  A8E761     BSET 0x761, #7                 49:    	bset NVMCON,#WR
+00052C  000000     NOP                            50:    	nop				;Required
+00052E  000000     NOP                            51:    	nop
+000530  AFE761     BTSC 0x761, #7                 52:    1:	btsc NVMCON,#WR	;Wait for write end
+000532  37FFFE     BRA 0x530                      53:    	bra 1b
+                                                  54:    
+000534  060000     RETURN                         55:    	return
+                                                  56:    
+                                                  57:    ;***************************************************************
+                                                  58:    _WriteLatch: ;W0=TBLPAG,W1=Wn,W2=WordHi,W3=WordLo - no return values
+000536  880190     MOV W0, TBLPAG                 59:    	mov	W0,TBLPAG
+000538  BB0883     TBLWTL W3, [W1]                60:    	tblwtl W3,[W1]
+00053A  BB8882     TBLWTH W2, [W1]                61:    	tblwth W2,[W1]
+                                                  62:    
+00053C  060000     RETURN                         63:    	return
+                                                  64:    
+                                                  65:    ;***************************************************************
+                                                  66:    _ReadLatch: ;W0=TBLPAG,W1=Wn - data in W1:W0
+00053E  880190     MOV W0, TBLPAG                 67:    	mov	W0,TBLPAG
+000540  BA0011     TBLRDL [W1], W0                68:    	tblrdl [W1],W0
+000542  BA8091     TBLRDH [W1], W1                69:    	tblrdh [W1],W1
+                                                  70:    
+000544  060000     RETURN                         71:    	return
+                                                  72:    
+                                                  73:    
+                                                  74:    ;***************************************************************
+                                                  75:    _ResetDevice:
+                                                  76:    
+000546  040702     GOTO 0x702                     77:    	goto 0x702
+                                                  78:    
+00054A  060000     RETURN                         79:    	return
+                                                  80:    .end
+                                                  81:    
+                                                  82:    
+                                                  83:    ;***************************************************************
+                                                  84:    
+                                                  85:    
+---  /home/bekeband/MPLABXProjects/bootloader.git/main.c  -----------------------------------------------
+1:                 /******************************************************************************/
+2:                 /* Files to Include                                                           */
+3:                 /******************************************************************************/
+4:                 
+5:                 #include <p30Fxxxx.h>      /* Device header file                              */
+6:                 #include <stdint.h>        /* Includes uint16_t definition                    */
+7:                 #include <stdbool.h>       /* Includes true/false definition                  */
+8:                 #include <stdio.h>         /* Includes true/false definition                  */
+9:                 
+10:                #include "system.h"        /* System funct/params, like osc/peripheral config */
+11:                #include "user.h"          /* User funct/params, such as InitApp              */
+12:                
+13:                
+14:                #define DEBUG 1
+15:                
+16:                /******************************************************************************/
+17:                /* Global Variable Declaration                                                */
+18:                /******************************************************************************/
+19:                
+20:                
+21:                #define COMMAND_NACK     0x00
+22:                #define COMMAND_ACK      0x01
+23:                #define COMMAND_READ_PM  0x02
+24:                //#define COMMAND_READ_PM     '2'
+25:                #define COMMAND_WRITE_PM 0x03
+26:                #define COMMAND_READ_EE  0x04
+27:                #define COMMAND_WRITE_EE 0x05
+28:                #define COMMAND_READ_CM  0x06
+29:                #define COMMAND_WRITE_CM 0x07
+30:                #define COMMAND_RESET    0x08
+31:                #define COMMAND_READ_ID  0x09
+32:                
+33:                #define PM_ROW_SIZE 32
+34:                #define EE_ROW_SIZE 16
+35:                #define CM_ROW_SIZE 7
+36:                #define CONFIG_WORD_SIZE 1
+37:                
+38:                #define PM_ROW_ERASE 		0x4041
+39:                #define PM_ROW_WRITE 		0x4001
+40:                #define EE_ROW_ERASE 		0x4045
+41:                #define EE_ROW_WRITE 		0x4005
+42:                #define CONFIG_WORD_WRITE	0X4008
+43:                
+44:                typedef short          Word16;
+45:                typedef unsigned short UWord16;
+46:                typedef long           Word32;
+47:                typedef unsigned long  UWord32;
+48:                
+49:                typedef union tuReg32
+50:                {
+51:                    UWord32 Val32;
+52:                    struct
+53:                    {
+54:                        UWord16 LW;
+55:                	UWord16 HW;
+56:                    } Word;
+57:                    char Val[4];
+58:                } uReg32;
+59:                
+60:                
+61:                extern UWord32 ReadLatch(UWord16, UWord16);
+62:                extern void WriteLatch(UWord16, UWord16, UWord16, UWord16);
+63:                extern void LoadAddr(UWord16, UWord16);
+64:                extern void WriteMem(UWord16);
+65:                
+66:                void PutChar(char);
+67:                void GetChar(char *);
+68:                void WriteBuffer(char *, int);
+69:                void WriteString(char*);
+70:                void ReadPM(char *, uReg32);
+71:                void ReadEE(char *, uReg32);
+72:                void WritePM(char *, uReg32);
+73:                void WriteEE(char *, uReg32);
+74:                void WriteCM(char *, uReg32);
+75:                void ResetDevice(void);
+76:                
+77:                char Buffer[PM_ROW_SIZE*3 + 1];
+78:                
+79:                void DelayuSec(long usec)
+80:                {   uReg32 Delay;
+000248  FA0008     LNK #0x8
+00024A  980720     MOV W0, [W14+4]
+00024C  980731     MOV W1, [W14+6]
+81:                    Delay.Val32 = ((UWord32)(FCY/1000)) * ((UWord32)(usec));
+00024E  90002E     MOV [W14+4], W0
+000250  9000BE     MOV [W14+6], W1
+000252  24E202     MOV #0x4E20, W2
+000254  B98902     MUL.SS W1, W2, W2
+000256  780102     MOV W2, W2
+000258  B90260     MUL.SU W0, #0, W4
+00025A  780184     MOV W4, W3
+00025C  410103     ADD W2, W3, W2
+00025E  24E203     MOV #0x4E20, W3
+000260  B80003     MUL.UU W0, W3, W0
+000262  410101     ADD W2, W1, W2
+000264  780082     MOV W2, W1
+000266  BE8F00     MOV.D W0, [W14]
+82:                    Delay.Val32 /= 1000;
+000268  BE001E     MOV.D [W14], W0
+00026A  203E82     MOV #0x3E8, W2
+00026C  200003     MOV #0x0, W3
+00026E  07FFAA     RCALL ___udivsi3
+000270  BE8F00     MOV.D W0, [W14]
+83:                    PR3 = Delay.Word.HW;
+000272  90001E     MOV [W14+2], W0
+000274  880870     MOV W0, PR3
+84:                    PR2 = Delay.Word.LW;
+000276  78001E     MOV [W14], W0
+000278  880860     MOV W0, PR2
+85:                
+86:                    /* Enable Timer */
+87:                    T2CONbits.TON = 1;
+00027A  A8E111     BSET 0x111, #7
+88:                
+89:                    while (!IFS0bits.T3IF) ;
+00027C  000000     NOP
+00027E  800421     MOV IFS0, W1
+000280  200800     MOV #0x80, W0
+000282  608000     AND W1, W0, W0
+000284  500FE0     SUB W0, #0x0, [W15]
+000286  32FFFB     BRA Z, 0x27E
+90:                    IFS0bits.T3IF = 0;
+000288  A9E084     BCLR IFS0, #7
+91:                    T2CONbits.TON = 0;
+00028A  A9E111     BCLR 0x111, #7
+92:                }
+00028C  FA8000     ULNK
+00028E  060000     RETURN
+93:                
+94:                void DelaySec(int sec)
+95:                {   uReg32 Delay;
+000290  FA0006     LNK #0x6
+000292  980720     MOV W0, [W14+4]
+96:                    Delay.Val32 = ((UWord32)(FCY)) * ((UWord32)(sec));
+000294  90002E     MOV [W14+4], W0
+000296  DE80CF     ASR W0, #15, W1
+000298  22D002     MOV #0x2D00, W2
+00029A  B98902     MUL.SS W1, W2, W2
+00029C  780102     MOV W2, W2
+00029E  201313     MOV #0x131, W3
+0002A0  B98203     MUL.SS W0, W3, W4
+0002A2  780184     MOV W4, W3
+0002A4  410103     ADD W2, W3, W2
+0002A6  22D003     MOV #0x2D00, W3
+0002A8  B80003     MUL.UU W0, W3, W0
+0002AA  410101     ADD W2, W1, W2
+0002AC  780082     MOV W2, W1
+0002AE  BE8F00     MOV.D W0, [W14]
+97:                    PR3 = Delay.Word.HW;
+0002B0  90001E     MOV [W14+2], W0
+0002B2  880870     MOV W0, PR3
+98:                    PR2 = Delay.Word.LW;
+0002B4  78001E     MOV [W14], W0
+0002B6  880860     MOV W0, PR2
+99:                
+100:                   /* Enable Timer */
+101:                   T2CONbits.TON = 1;
+0002B8  A8E111     BSET 0x111, #7
+102:               
+103:                   while (!IFS0bits.T3IF) ;
+0002BA  000000     NOP
+0002BC  800421     MOV IFS0, W1
+0002BE  200800     MOV #0x80, W0
+0002C0  608000     AND W1, W0, W0
+0002C2  500FE0     SUB W0, #0x0, [W15]
+0002C4  32FFFB     BRA Z, 0x2BC
+104:                   IFS0bits.T3IF = 0;
+0002C6  A9E084     BCLR IFS0, #7
+105:                   T2CONbits.TON = 0;
+0002C8  A9E111     BCLR 0x111, #7
+106:               }
+0002CA  FA8000     ULNK
+0002CC  060000     RETURN
+107:               
+108:               /******************************************************************************/
+109:               /* Main Program                                                               */
+110:               /******************************************************************************/
+111:               
+112:               int16_t main(void)
+113:               {
+0002CE  FA008E     LNK #0x8E
+114:               uReg32 SourceAddr;
+115:               uReg32 Delay;
+116:               int i;
+117:               
+118:               InitApp();
+0002D0  070149     RCALL InitApp
+119:               
+120:               SourceAddr.Val32 = 0x700;
+0002D2  207000     MOV #0x700, W0
+0002D4  200001     MOV #0x0, W1
+0002D6  BE8F00     MOV.D W0, [W14]
+121:               
+122:               Delay.Val32 = ReadLatch(SourceAddr.Word.HW, SourceAddr.Word.LW);
+0002D8  78009E     MOV [W14], W1
+0002DA  90001E     MOV [W14+2], W0
+0002DC  070130     RCALL _ReadLatch
+0002DE  980720     MOV W0, [W14+4]
+0002E0  980731     MOV W1, [W14+6]
+123:               
+124:               /*if(Delay.Val[0] == 0)
+125:               {
+126:                   ResetDevice();
+127:               }*/
+128:               
+129:               T2CONbits.T32 = 1; /* to increment every instruction cycle */
+0002E2  A86110     BSET T2CON, #3
+130:               IFS0bits.T3IF = 0; /* Clear the Timer3 Interrupt Flag */
+0002E4  A9E084     BCLR IFS0, #7
+131:               IEC0bits.T3IE = 0; /* Disable Timer3 Interrup Service Routine */
+0002E6  A9E08C     BCLR IEC0, #7
+132:               
+133:               //U1RTS_LAT = 1;  /* Basically we waiting the reading character(s). */
+134:               
+135:               U1RTS_LAT = 1;  /* @TODO WARNING @We probe the RTS line now. */
+0002E8  A8A2E2     BSET LATF, #5
+136:               U1TXD_LAT = 1; /* @TODO WARNING @Probe*/
+0002EA  A862E2     BSET LATF, #3
+137:               
+138:               char HW[100]="Firmware loading program started.\0";
+0002EC  78000E     MOV W14, W0
+0002EE  B00080     ADD #0x8, W0
+0002F0  281E41     MOV #0x81E4, W1
+0002F2  090022     REPEAT #0x22
+0002F4  785831     MOV.B [W1++], [W0++]
+0002F6  78000E     MOV W14, W0
+0002F8  B002B0     ADD #0x2B, W0
+0002FA  090040     REPEAT #0x40
+0002FC  EB5800     CLR.B [W0++]
+139:               
+140:               while (1)
+141:               {
+142:                   
+143:               }
+0002FE  37FFFF     BRA 0x2FE
+144:               
+145:               while(1)
+146:               {
+147:                   char Command;
+148:                   loop_001:
+149:               /*    sprintf(HW, "SourceAddr: %i %i %i", SourceAddr.Val[0], SourceAddr.Val[1],
+150:                       SourceAddr.Val[2]);*/
+151:                   DelayuSec(1);
+152:                   WriteString(HW);
+153:               
+154:                   goto loop_001;
+155:                   GetChar(&Command);
+156:                   switch(Command)
+157:                   {
+158:                       case COMMAND_READ_PM:
+159:               	{
+160:                           uReg32 SourceAddr;
+161:               
+162:                           GetChar(&(SourceAddr.Val[0]));
+163:                           GetChar(&(SourceAddr.Val[1]));
+164:                           GetChar(&(SourceAddr.Val[2]));
+165:                           ReadPM(Buffer, SourceAddr);
+166:                           WriteBuffer(Buffer, PM_ROW_SIZE * 3);
+167:               
+168:               /*            sprintf(HW, "SourceAddr: %i %i %i", SourceAddr.Val[0],
+169:                               SourceAddr.Val[1], SourceAddr.Val[2]);
+170:                           DelayuSec(2000);
+171:                           WriteString(HW);*/
+172:               
+173:               	break;
+174:               	}
+175:               
+176:               	case COMMAND_READ_EE:
+177:               	{
+178:                           uReg32 SourceAddr;
+179:               
+180:                           GetChar(&(SourceAddr.Val[0]));
+181:                           GetChar(&(SourceAddr.Val[1]));
+182:                           GetChar(&(SourceAddr.Val[2]));
+183:               
+184:                           ReadEE(Buffer, SourceAddr);
+185:               
+186:                           WriteBuffer(Buffer, EE_ROW_SIZE*2);
+187:               
+188:               	break;
+189:               	}
+190:               
+191:               
+192:               	case COMMAND_WRITE_PM:
+193:               	{
+194:                           uReg32 SourceAddr;
+195:                           int    Size;
+196:               
+197:                           GetChar(&(SourceAddr.Val[0]));
+198:                           GetChar(&(SourceAddr.Val[1]));
+199:                           GetChar(&(SourceAddr.Val[2]));
+200:                           SourceAddr.Val[3]=0;
+201:               
+202:                           for(Size = 0; Size < PM_ROW_SIZE*3; Size++)
+203:                           {
+204:                               GetChar(&(Buffer[Size]));
+205:                           }
+206:               
+207:                           LoadAddr(SourceAddr.Word.HW,SourceAddr.Word.LW);
+208:               
+209:                           WriteMem(PM_ROW_ERASE);         /*Erase  page  */
+210:               
+211:                           WritePM(Buffer, SourceAddr);    /*program page */
+212:               
+213:                           PutChar(COMMAND_ACK);           /*Send Acknowledgement */
+214:               
+215:                       break;
+216:                       }
+217:               
+218:                       case COMMAND_WRITE_EE:
+219:                       {
+220:                           uReg32 SourceAddr;
+221:                           int    Size;
+222:               
+223:                           GetChar(&(SourceAddr.Val[0]));
+224:                           GetChar(&(SourceAddr.Val[1]));
+225:                           GetChar(&(SourceAddr.Val[2]));
+226:               
+227:                           for(Size = 0; Size < EE_ROW_SIZE*2; Size++)
+228:                           {
+229:                               GetChar(&(Buffer[Size]));
+230:                           }
+231:               
+232:                           LoadAddr(SourceAddr.Word.HW,SourceAddr.Word.LW);
+233:               
+234:                           WriteMem(EE_ROW_ERASE);
+235:               
+236:                           WriteEE(Buffer, SourceAddr);
+237:               
+238:                           PutChar(COMMAND_ACK);				/*Send Acknowledgement */
+239:               
+240:                       break;
+241:                       }
+242:               
+243:                       case COMMAND_WRITE_CM:
+244:                       {
+245:                           int   Size;
+246:               
+247:                           for(Size = 0; Size < CM_ROW_SIZE*3;)
+248:                           {
+249:                               GetChar(&(Buffer[Size++]));
+250:                               GetChar(&(Buffer[Size++]));
+251:                               GetChar(&(Buffer[Size++]));
+252:               
+253:                               PutChar(COMMAND_ACK);				/*Send Acknowledgement */
+254:                           }
+255:               
+256:               
+257:                           break;
+258:                           }
+259:               
+260:                       case COMMAND_RESET:
+261:                       {
+262:                           uReg32 SourceAddr;
+263:                           int    Size;
+264:                           uReg32 Temp;
+265:               
+266:               
+267:                           for(Size = 0, SourceAddr.Val32 = 0xF80000; Size < CM_ROW_SIZE*3;
+268:               																Size +=3, SourceAddr.Val32 += 2)
+269:                           {
+270:                               if(Buffer[Size] == 0)
+271:               		{
+272:                                   Temp.Val[0]=Buffer[Size+1];
+273:                                   Temp.Val[1]=Buffer[Size+2];
+274:               
+275:                                   WriteLatch( SourceAddr.Word.HW, SourceAddr.Word.LW, Temp.Word.HW, Temp.Word.LW);
+276:               
+277:                                   WriteMem(CONFIG_WORD_WRITE);
+278:               		}
+279:                           }
+280:               
+281:               
+282:               	ResetDevice();
+283:               
+284:               	break;
+285:               	}
+286:               
+287:               	case COMMAND_NACK:
+288:               	{
+289:                           ResetDevice();
+290:               
+291:                           break;
+292:               	}
+293:               
+294:               	case COMMAND_READ_ID:
+295:               	{
+296:                           uReg32 SourceAddr;
+297:                           uReg32 Temp;
+298:               
+299:                           SourceAddr.Val32 = 0xFF0000;
+300:               
+301:                           Temp.Val32 = ReadLatch(SourceAddr.Word.HW, SourceAddr.Word.LW);
+302:               
+303:                           WriteBuffer(&(Temp.Val[0]), 4);
+304:               
+305:                           SourceAddr.Val32 = 0xFF0002;
+306:               
+307:                           Temp.Val32 = ReadLatch(SourceAddr.Word.HW, SourceAddr.Word.LW);
+308:               
+309:                           WriteBuffer(&(Temp.Val[0]), 4);
+310:               
+311:               	break;
+312:                       }
+313:               
+314:               	default:
+315:                           PutChar(COMMAND_NACK);
+316:                           break;
+317:               	}
+318:                   }
+319:               
+320:               return 0;
+321:               }
+322:               
+323:               
+324:               /******************************************************************************/
+325:               void ReadPM(char * ptrData, uReg32 SourceAddr)
+326:               {
+000300  FA000C     LNK #0xC
+000302  980730     MOV W0, [W14+6]
+000304  980742     MOV W2, [W14+8]
+000306  980753     MOV W3, [W14+10]
+327:               int    Size;
+328:               uReg32 Temp;
+329:               
+330:                   for(Size = 0; Size < PM_ROW_SIZE; Size++)
+000308  EB0000     CLR W0
+00030A  780F00     MOV W0, [W14]
+00030C  37001A     BRA 0x342
+000340  E80F1E     INC [W14], [W14]
+000342  78001E     MOV [W14], W0
+000344  500FFF     SUB W0, #0x1F, [W15]
+000346  34FFE3     BRA LE, 0x30E
+331:                   {
+332:                   Temp.Val32 = ReadLatch(SourceAddr.Word.HW, SourceAddr.Word.LW);
+00030E  9000CE     MOV [W14+8], W1
+000310  90005E     MOV [W14+10], W0
+000312  070115     RCALL _ReadLatch
+000314  980710     MOV W0, [W14+2]
+000316  980721     MOV W1, [W14+4]
+333:               
+334:                   ptrData[0] = Temp.Val[2];;
+000318  90404E     MOV.B [W14+4], W0
+00031A  9000BE     MOV [W14+6], W1
+00031C  784880     MOV.B W0, [W1]
+335:                   ptrData[1] = Temp.Val[1];;
+00031E  90003E     MOV [W14+6], W0
+000320  E80080     INC W0, W1
+000322  90403E     MOV.B [W14+3], W0
+000324  784880     MOV.B W0, [W1]
+336:                   ptrData[2] = Temp.Val[0];;
+000326  90003E     MOV [W14+6], W0
+000328  E88080     INC2 W0, W1
+00032A  90402E     MOV.B [W14+2], W0
+00032C  784880     MOV.B W0, [W1]
+337:               
+338:                   ptrData = ptrData + 3;
+00032E  90003E     MOV [W14+6], W0
+000330  400063     ADD W0, #0x3, W0
+000332  980730     MOV W0, [W14+6]
+339:               
+340:                   SourceAddr.Val32 = SourceAddr.Val32 + 2;
+000334  90004E     MOV [W14+8], W0
+000336  9000DE     MOV [W14+10], W1
+000338  400062     ADD W0, #0x2, W0
+00033A  4880E0     ADDC W1, #0x0, W1
+00033C  980740     MOV W0, [W14+8]
+00033E  980751     MOV W1, [W14+10]
+341:                   }
+342:               }
+000348  FA8000     ULNK
+00034A  060000     RETURN
+343:               /******************************************************************************/
+344:               
+345:               void ReadEE(char * ptrData, uReg32 SourceAddr)
+346:               {
+00034C  FA000C     LNK #0xC
+00034E  980730     MOV W0, [W14+6]
+000350  980742     MOV W2, [W14+8]
+000352  980753     MOV W3, [W14+10]
+347:               int    Size;
+348:               uReg32 Temp;
+349:               
+350:                   for(Size = 0; Size < EE_ROW_SIZE; Size++)
+000354  EB0000     CLR W0
+000356  780F00     MOV W0, [W14]
+000358  370016     BRA 0x386
+000384  E80F1E     INC [W14], [W14]
+000386  78001E     MOV [W14], W0
+000388  500FEF     SUB W0, #0xF, [W15]
+00038A  34FFE7     BRA LE, 0x35A
+351:                   {
+352:                   Temp.Val32 = ReadLatch(SourceAddr.Word.HW, SourceAddr.Word.LW);
+00035A  9000CE     MOV [W14+8], W1
+00035C  90005E     MOV [W14+10], W0
+00035E  0700EF     RCALL _ReadLatch
+000360  980710     MOV W0, [W14+2]
+000362  980721     MOV W1, [W14+4]
+353:               
+354:                   ptrData[0] = Temp.Val[1];
+000364  90403E     MOV.B [W14+3], W0
+000366  9000BE     MOV [W14+6], W1
+000368  784880     MOV.B W0, [W1]
+355:                   ptrData[1] = Temp.Val[0];
+00036A  90003E     MOV [W14+6], W0
+00036C  E80080     INC W0, W1
+00036E  90402E     MOV.B [W14+2], W0
+000370  784880     MOV.B W0, [W1]
+356:               
+357:               
+358:                   ptrData = ptrData + 2;
+000372  90003E     MOV [W14+6], W0
+000374  E88000     INC2 W0, W0
+000376  980730     MOV W0, [W14+6]
+359:               
+360:                   SourceAddr.Val32 = SourceAddr.Val32 + 2;
+000378  90004E     MOV [W14+8], W0
+00037A  9000DE     MOV [W14+10], W1
+00037C  400062     ADD W0, #0x2, W0
+00037E  4880E0     ADDC W1, #0x0, W1
+000380  980740     MOV W0, [W14+8]
+000382  980751     MOV W1, [W14+10]
+361:                   }
+362:               }
+00038C  FA8000     ULNK
+00038E  060000     RETURN
+363:               
+364:               /******************************************************************************/
+365:               void WritePM(char * ptrData, uReg32 SourceAddr)
+366:               {
+000390  FA000E     LNK #0xE
+000392  980740     MOV W0, [W14+8]
+000394  980752     MOV W2, [W14+10]
+000396  980763     MOV W3, [W14+12]
+367:               int    Size,Size1;
+368:               uReg32 Temp;
+369:               
+370:                   for(Size = 0,Size1=0; Size < PM_ROW_SIZE; Size++)
+000398  EB0000     CLR W0
+00039A  780F00     MOV W0, [W14]
+00039C  EB0000     CLR W0
+00039E  980710     MOV W0, [W14+2]
+0003A0  370022     BRA 0x3E6
+0003E4  E80F1E     INC [W14], [W14]
+0003E6  78001E     MOV [W14], W0
+0003E8  500FFF     SUB W0, #0x1F, [W15]
+0003EA  34FFDB     BRA LE, 0x3A2
+371:                   {
+372:               
+373:                   Temp.Val[0]=ptrData[Size1+0];
+0003A2  90001E     MOV [W14+2], W0
+0003A4  9000CE     MOV [W14+8], W1
+0003A6  408000     ADD W1, W0, W0
+0003A8  784010     MOV.B [W0], W0
+0003AA  984740     MOV.B W0, [W14+4]
+374:                   Temp.Val[1]=ptrData[Size1+1];
+0003AC  90001E     MOV [W14+2], W0
+0003AE  E80000     INC W0, W0
+0003B0  9000CE     MOV [W14+8], W1
+0003B2  408000     ADD W1, W0, W0
+0003B4  784010     MOV.B [W0], W0
+0003B6  984750     MOV.B W0, [W14+5]
+375:                   Temp.Val[2]=ptrData[Size1+2];
+0003B8  90001E     MOV [W14+2], W0
+0003BA  E88000     INC2 W0, W0
+0003BC  9000CE     MOV [W14+8], W1
+0003BE  408000     ADD W1, W0, W0
+0003C0  784010     MOV.B [W0], W0
+0003C2  984760     MOV.B W0, [W14+6]
+376:                   Temp.Val[3]=0;
+0003C4  EB4000     CLR.B W0
+0003C6  984770     MOV.B W0, [W14+7]
+377:                   Size1+=3;
+0003C8  90001E     MOV [W14+2], W0
+0003CA  400063     ADD W0, #0x3, W0
+0003CC  980710     MOV W0, [W14+2]
+378:                   WriteLatch(SourceAddr.Word.HW, SourceAddr.Word.LW,Temp.Word.HW,Temp.Word.LW);
+0003CE  9001AE     MOV [W14+4], W3
+0003D0  90013E     MOV [W14+6], W2
+0003D2  9000DE     MOV [W14+10], W1
+0003D4  90006E     MOV [W14+12], W0
+0003D6  0700AF     RCALL _WriteLatch
+379:               
+380:                   SourceAddr.Val32 = SourceAddr.Val32 + 2;
+0003D8  90005E     MOV [W14+10], W0
+0003DA  9000EE     MOV [W14+12], W1
+0003DC  400062     ADD W0, #0x2, W0
+0003DE  4880E0     ADDC W1, #0x0, W1
+0003E0  980750     MOV W0, [W14+10]
+0003E2  980761     MOV W1, [W14+12]
+381:                   }
+382:               
+383:               WriteMem(PM_ROW_WRITE);
+0003EC  240010     MOV #0x4001, W0
+0003EE  070098     RCALL _WriteMem
+384:               }
+0003F0  FA8000     ULNK
+0003F2  060000     RETURN
+385:               /******************************************************************************/
+386:               void WriteEE(char * ptrData, uReg32 SourceAddr)
+387:               {
+0003F4  FA000E     LNK #0xE
+0003F6  980740     MOV W0, [W14+8]
+0003F8  980752     MOV W2, [W14+10]
+0003FA  980763     MOV W3, [W14+12]
+388:               int    Size,Size1;
+389:               uReg32 Temp;
+390:               
+391:                   for(Size = 0,Size1=0; Size < EE_ROW_SIZE; Size++)
+0003FC  EB0000     CLR W0
+0003FE  780F00     MOV W0, [W14]
+000400  EB0000     CLR W0
+000402  980710     MOV W0, [W14+2]
+000404  37001E     BRA 0x442
+000440  E80F1E     INC [W14], [W14]
+000442  78001E     MOV [W14], W0
+000444  500FEF     SUB W0, #0xF, [W15]
+000446  34FFDF     BRA LE, 0x406
+392:                   {
+393:               
+394:                   Temp.Val[0]=ptrData[Size1+0];
+000406  90001E     MOV [W14+2], W0
+000408  9000CE     MOV [W14+8], W1
+00040A  408000     ADD W1, W0, W0
+00040C  784010     MOV.B [W0], W0
+00040E  984740     MOV.B W0, [W14+4]
+395:                   Temp.Val[1]=ptrData[Size1+1];
+000410  90001E     MOV [W14+2], W0
+000412  E80000     INC W0, W0
+000414  9000CE     MOV [W14+8], W1
+000416  408000     ADD W1, W0, W0
+000418  784010     MOV.B [W0], W0
+00041A  984750     MOV.B W0, [W14+5]
+396:                   Temp.Val[2]=0;
+00041C  EB4000     CLR.B W0
+00041E  984760     MOV.B W0, [W14+6]
+397:                   Temp.Val[3]=0;
+000420  EB4000     CLR.B W0
+000422  984770     MOV.B W0, [W14+7]
+398:                   Size1+=2;
+000424  90001E     MOV [W14+2], W0
+000426  E88000     INC2 W0, W0
+000428  980710     MOV W0, [W14+2]
+399:                   WriteLatch(SourceAddr.Word.HW, SourceAddr.Word.LW,Temp.Word.HW,Temp.Word.LW);
+00042A  9001AE     MOV [W14+4], W3
+00042C  90013E     MOV [W14+6], W2
+00042E  9000DE     MOV [W14+10], W1
+000430  90006E     MOV [W14+12], W0
+000432  070081     RCALL _WriteLatch
+400:               
+401:                   SourceAddr.Val32 = SourceAddr.Val32 + 2;
+000434  90005E     MOV [W14+10], W0
+000436  9000EE     MOV [W14+12], W1
+000438  400062     ADD W0, #0x2, W0
+00043A  4880E0     ADDC W1, #0x0, W1
+00043C  980750     MOV W0, [W14+10]
+00043E  980761     MOV W1, [W14+12]
+402:                   }
+403:               WriteMem(EE_ROW_WRITE);
+000448  240050     MOV #0x4005, W0
+00044A  07006A     RCALL _WriteMem
+404:               }
+00044C  FA8000     ULNK
+00044E  060000     RETURN
+405:               
+406:               void WriteString(char* str)
+407:               {
+000450  FA0004     LNK #0x4
+000452  980710     MOV W0, [W14+2]
+408:                   int i = 0;
+000454  EB0000     CLR W0
+000456  780F00     MOV W0, [W14]
+409:                   while (!(U1STAbits.RIDLE));
+000458  000000     NOP
+00045A  801070     MOV U1STA, W0
+00045C  600070     AND W0, #0x10, W0
+00045E  500FE0     SUB W0, #0x0, [W15]
+000460  32FFFC     BRA Z, 0x45A
+410:                   U1RTS_LAT = 0; /* Set RS485 port to transmit state. */
+000462  A9A2E2     BCLR LATF, #5
+411:                   while (str[i] != '\0')
+000464  370006     BRA 0x472
+000472  78001E     MOV [W14], W0
+000474  90009E     MOV [W14+2], W1
+000476  408000     ADD W1, W0, W0
+000478  784010     MOV.B [W0], W0
+00047A  504FE0     SUB.B W0, #0x0, [W15]
+00047C  3AFFF4     BRA NZ, 0x466
+412:                   {
+413:                       PutChar(str[i++]);
+000466  78001E     MOV [W14], W0
+000468  90009E     MOV [W14+2], W1
+00046A  408000     ADD W1, W0, W0
+00046C  784010     MOV.B [W0], W0
+00046E  E80F1E     INC [W14], [W14]
+000470  07002E     RCALL PutChar
+414:                   }
+415:                   while (!U1STAbits.TRMT);
+00047E  000000     NOP
+000480  801071     MOV U1STA, W1
+000482  201000     MOV #0x100, W0
+000484  608000     AND W1, W0, W0
+000486  500FE0     SUB W0, #0x0, [W15]
+000488  32FFFB     BRA Z, 0x480
+416:                   U1RTS_LAT = 1;  /* Then Set RS485 port to receive state. (High impedance line.)*/
+00048A  A8A2E2     BSET LATF, #5
+417:               
+418:               }
+00048C  FA8000     ULNK
+00048E  060000     RETURN
+419:               /******************************************************************************/
+420:               
+421:               void WriteBuffer(char * ptrData, int Size)
+422:               {
+000490  FA0006     LNK #0x6
+000492  980710     MOV W0, [W14+2]
+000494  980721     MOV W1, [W14+4]
+423:               int DataCount;
+424:               
+425:                   /* While until Receiver Idle Bit*/
+426:                   while (!(U1STAbits.RIDLE));
+000496  000000     NOP
+000498  801070     MOV U1STA, W0
+00049A  600070     AND W0, #0x10, W0
+00049C  500FE0     SUB W0, #0x0, [W15]
+00049E  32FFFC     BRA Z, 0x498
+427:                   U1RTS_LAT = 0; /* Set RS485 port to transmit state. */
+0004A0  A9A2E2     BCLR LATF, #5
+428:               
+429:                   for(DataCount = 0; DataCount < Size; DataCount++)
+0004A2  EB0000     CLR W0
+0004A4  780F00     MOV W0, [W14]
+0004A6  370006     BRA 0x4B4
+0004B2  E80F1E     INC [W14], [W14]
+0004B4  90002E     MOV [W14+4], W0
+0004B6  78009E     MOV [W14], W1
+0004B8  508F80     SUB W1, W0, [W15]
+0004BA  35FFF6     BRA LT, 0x4A8
+430:                   {
+431:                       PutChar(ptrData[DataCount]);
+0004A8  78001E     MOV [W14], W0
+0004AA  90009E     MOV [W14+2], W1
+0004AC  408000     ADD W1, W0, W0
+0004AE  784010     MOV.B [W0], W0
+0004B0  07000E     RCALL PutChar
+432:                   }
+433:               
+434:                   while (!U1STAbits.TRMT);
+0004BC  000000     NOP
+0004BE  801071     MOV U1STA, W1
+0004C0  201000     MOV #0x100, W0
+0004C2  608000     AND W1, W0, W0
+0004C4  500FE0     SUB W0, #0x0, [W15]
+0004C6  32FFFB     BRA Z, 0x4BE
+435:                   U1RTS_LAT = 1;  /* Then Set RS485 port to receive state. (High impedance line.)*/
+0004C8  A8A2E2     BSET LATF, #5
+436:               
+437:               }
+0004CA  FA8000     ULNK
+0004CC  060000     RETURN
+438:               /******************************************************************************/
+439:               void PutChar(char Char)
+440:               {
+0004CE  FA0002     LNK #0x2
+0004D0  784F00     MOV.B W0, [W14]
+441:                   /* TRMT Transmit Shift Register is Empty bit (Read Only) */
+442:                   /* RIDLE: Receiver Idle bit (Read Only) */
+443:                   /* Waiting for transmit shift register empty, and receiver idle bit*/
+444:               //    while(!((U1STAbits.TRMT) && (U1STAbits.RIDLE)));
+445:                   while (!U1STAbits.TRMT);
+0004D2  000000     NOP
+0004D4  801071     MOV U1STA, W1
+0004D6  201000     MOV #0x100, W0
+0004D8  608000     AND W1, W0, W0
+0004DA  500FE0     SUB W0, #0x0, [W15]
+0004DC  32FFFB     BRA Z, 0x4D4
+446:                   U1TXREG = Char;
+0004DE  FB001E     SE [W14], W0
+0004E0  881080     MOV W0, U1TXREG
+447:               }
+0004E2  FA8000     ULNK
+0004E4  060000     RETURN
+448:               /******************************************************************************/
+449:               void GetChar(char * ptrChar)
+450:               {
+0004E6  FA0002     LNK #0x2
+0004E8  780F00     MOV W0, [W14]
+0004EA  370001     BRA 0x4EE
+451:                   while(1)
+452:                   {
+453:                   /* if timer expired, signal to application to jump to user code */
+454:               /*        if(IFS0bits.T3IF == 1)
+455:                       {
+456:                       * ptrChar = COMMAND_NACK;
+457:                       break;
+458:                       }*/
+459:               
+460:                       /* check for receive errors */
+461:                       if(U1STAbits.FERR == 1)
+0004EE  801070     MOV U1STA, W0
+0004F0  600064     AND W0, #0x4, W0
+0004F2  500FE0     SUB W0, #0x0, [W15]
+0004F4  320001     BRA Z, 0x4F8
+462:                       {
+463:                       continue;
+0004F6  370010     BRA 0x518
+464:                       }
+465:               
+466:                       /* must clear the overrun error to keep uart receiving */
+467:                       if(U1STAbits.OERR == 1)
+0004F8  801070     MOV U1STA, W0
+0004FA  600062     AND W0, #0x2, W0
+0004FC  500FE0     SUB W0, #0x0, [W15]
+0004FE  320002     BRA Z, 0x504
+468:                       {
+469:                       U1STAbits.OERR = 0;
+000500  A9220E     BCLR U1STA, #1
+470:                       continue;
+000502  37000A     BRA 0x518
+471:                       }
+472:               
+473:                       /* get the data */
+474:                       if(U1STAbits.URXDA == 1)
+000504  801070     MOV U1STA, W0
+000506  600061     AND W0, #0x1, W0
+000508  500FE0     SUB W0, #0x0, [W15]
+00050A  32FFF0     BRA Z, 0x4EC
+475:                       {
+476:               //        T2CONbits.TON=0; /* Disable timer countdown */
+477:               
+478:                       * ptrChar = U1RXREG;
+00050C  801090     MOV U1RXREG, W0
+00050E  784000     MOV.B W0, W0
+000510  78009E     MOV [W14], W1
+000512  784880     MOV.B W0, [W1]
+479:                       break;
+480:                       }
+481:                   }
+0004EC  000000     NOP
+000518  37FFEA     BRA 0x4EE
+482:               }
+000514  FA8000     ULNK
+000516  060000     RETURN
+483:               /******************************************************************************/
+484:               

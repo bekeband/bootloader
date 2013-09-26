@@ -10,6 +10,7 @@
 #include "system.h"        /* System funct/params, like osc/peripheral config */
 #include "user.h"          /* User funct/params, such as InitApp              */
 
+
 #define DEBUG 1
 
 /******************************************************************************/
@@ -112,7 +113,10 @@ int16_t main(void)
 {
 uReg32 SourceAddr;
 uReg32 Delay;
+int i;
+char HW[100]="Firmware loading program started.\0";
 
+InitApp();
 
 SourceAddr.Val32 = 0x700;
 
@@ -127,22 +131,26 @@ T2CONbits.T32 = 1; /* to increment every instruction cycle */
 IFS0bits.T3IF = 0; /* Clear the Timer3 Interrupt Flag */
 IEC0bits.T3IE = 0; /* Disable Timer3 Interrup Service Routine */
 
-InitApp();
-U1RTS_LAT = 1;  /* Basically we waiting the reading character(s). */
+//U1RTS_LAT = 1;  /* Basically we waiting the reading character(s). */
 
-char HW[100]="Firmware loading program started.\0";
+U1RTS_LAT = 0;  /* @TODO WARNING @We probe the RTS line now. */
+U1TXD_LAT = 1; /* @TODO WARNING @Probe*/
 
-
-/*while (1)
+while (1)
 {
-    DelaySec(2);
-    WriteString(HW);
-};*/
+    
+}
 
 while(1)
 {
     char Command;
+    loop_001:
+/*    sprintf(HW, "SourceAddr: %i %i %i", SourceAddr.Val[0], SourceAddr.Val[1],
+        SourceAddr.Val[2]);*/
+    DelayuSec(1);
+    WriteString(HW);
 
+    goto loop_001;
     GetChar(&Command);
     switch(Command)
     {
