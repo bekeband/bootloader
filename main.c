@@ -6,6 +6,7 @@
 #include <stdint.h>        /* Includes uint16_t definition                    */
 #include <stdbool.h>       /* Includes true/false definition                  */
 #include <stdio.h>         /* Includes true/false definition                  */
+#include <string.h> /* strcpy, and more...*/
 
 #include "system.h"        /* System funct/params, like osc/peripheral config */
 #include "user.h"          /* User funct/params, such as InitApp              */
@@ -64,9 +65,11 @@ extern void LoadAddr(UWord16, UWord16);
 extern void WriteMem(UWord16);
 
 void PutChar(char);
+void PutCharHex(char);
 void GetChar(char *);
 void WriteBuffer(char *, int);
 void WriteString(char*);
+void WriteBufferHex(char*, int);
 void ReadPM(char *, uReg32);
 void ReadEE(char *, uReg32);
 void WritePM(char *, uReg32);
@@ -148,6 +151,7 @@ LATCbits.LATC14 = 0;
 
 while(1)
 {
+    char* token;
     char Command;
 
     WriteString(WELCOME_MESSAGE);
@@ -159,12 +163,41 @@ while(1)
     DelayuSec(200);
     LATEbits.LATE4 = 0;
 //    DelayuSec(1000);
-#endif
+#endif  /* Read command until enter character. */
         if (WaitCommand() > 0)
-            WriteString(CommandBuf);
+        {
+            /* tokenize to the first space character.*/
+            if ((token = strtok(CommandBuf, " ")) != NULL)
+            {
+                if (!strcmp(token, "rdid"))
+                {
+                    WriteString("RDID command .\n\r\0");
+                    uReg32 SourceAddr;
+                    uReg32 Temp;
+                    SourceAddr.Val32 = 0xFF0000;
+                    Temp.Val32 = ReadLatch(SourceAddr.Word.HW, SourceAddr.Word.LW);
+                    WriteBufferHex(&(Temp.Val[0]), 4);
+                    SourceAddr.Val32 = 0xFF0002;
+                    Temp.Val32 = ReadLatch(SourceAddr.Word.HW, SourceAddr.Word.LW);
+                    WriteBufferHex(&(Temp.Val[0]), 4);
+                }
+                else
+                    WriteString("Unknown command.\n\r\0");
+            }
+            else WriteString("No token. \n\r\0");
+
+/*            if ((strcmp(CommandBuf, "RPM")) != NULL)
+            {main.c:194:14: error: 'Command' undeclared (first use in this function)
+                WriteString("Read PM\n\r\0");
+            } else
+            {
+                WriteString(CommandBuf);
+            }*/
+        }
         else
+        {
             WriteString(NOCOM);
-        
+        };
     goto loop_001;
 
 /*    sprintf(HW, "SourceAddr: %i %i %i", SourceAddr.Val[0], SourceAddr.Val[1],
@@ -184,11 +217,6 @@ while(1)
             GetChar(&(SourceAddr.Val[2]));
             ReadPM(Buffer, SourceAddr);
             WriteBuffer(Buffer, PM_ROW_SIZE * 3);
-
-/*            sprintf(HW, "SourceAddr: %i %i %i", SourceAddr.Val[0],
-                SourceAddr.Val[1], SourceAddr.Val[2]);
-            DelayuSec(2000);
-            WriteString(HW);*/
 
 	break;
 	}
@@ -449,14 +477,37 @@ void WriteString(char* str)
 {
     int i = 0;
     while (!(U1STAbits.RIDLE));
-    U1RTS_LAT = 1; /* Set RS485 port to transmit state. */
+//    U1RTS_LAT = 1; /* Set RS485 port to transmit state. */
     while (str[i] != '\0')
     {
         PutChar(str[i++]);
     }
     while (!U1STAbits.TRMT);
-    U1RTS_LAT = 0;  /* Then reset RS485 port to receive state. (High impedance line.)*/
+//    U1RTS_LAT = 0;  /* Then reset RS485 port to receive state. (High impedance line.)*/
 
+}
+
+void WriteBufferHex(char* ptrData, int Size)
+{
+int DataCount;
+
+    /* While until Receiver Idle Bit*/
+    while (!(U1STAbits.RIDLE));
+//    U1RTS_LAT = 1; /* Set RS485 port to transmit state. */
+
+    for(DataCount = 0; DataCount < Size; DataCount++)
+    {
+        PutCharHex(ptrData[DataCount]);
+    }
+
+    while (!U1STAbits.TRMT);
+}
+
+
+void PutCharHex(char Char)
+{   char buffer[3];
+    sprintf(buffer, "%2x", Char);
+    WriteString(buffer);
 }
 /******************************************************************************/
 
@@ -466,7 +517,7 @@ int DataCount;
 
     /* While until Receiver Idle Bit*/
     while (!(U1STAbits.RIDLE));
-    U1RTS_LAT = 1; /* Set RS485 port to transmit state. */
+//    U1RTS_LAT = 1; /* Set RS485 port to transmit state. */
 
     for(DataCount = 0; DataCount < Size; DataCount++)
     {
@@ -474,7 +525,7 @@ int DataCount;
     }
 
     while (!U1STAbits.TRMT);
-    U1RTS_LAT = 0;  /* Then Reset RS485 port to receive state. (High impedance line.)*/
+//    U1RTS_LAT = 0;  /* Then Reset RS485 port to receive state. (High impedance line.)*/
 
 }
 /******************************************************************************/
