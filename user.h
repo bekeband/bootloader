@@ -6,8 +6,10 @@
  * These are the LED display's in/out lines.*/
 
 #define CAL_BRG(BAUD_RATE) ((FCY/(16*BAUD_RATE))-1)
-#define BAUDRATE 9600l
+#define BAUDRATE 19200l
 #define BRGVAL          ((FCY/BAUDRATE)/16)-1
+
+#define LED_BLINKING
 
 /*---- RS485 input section */
     // U1RXD_TRIS register. Then must be set input.

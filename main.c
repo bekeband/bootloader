@@ -73,8 +73,14 @@ void WritePM(char *, uReg32);
 void WriteEE(char *, uReg32);
 void WriteCM(char *, uReg32);
 void ResetDevice(void);
+int WaitCommand();
+
+#define MAX_COMMAND_SIZE 16
 
 char Buffer[PM_ROW_SIZE*3 + 1];
+char CommandBuf[MAX_COMMAND_SIZE + 1];
+
+/* usec delay program with T2 timer. */
 
 void DelayuSec(long usec)
 {   uReg32 Delay;
@@ -90,6 +96,8 @@ void DelayuSec(long usec)
     IFS0bits.T3IF = 0;
     T2CONbits.TON = 0;
 }
+
+/* sec delay program with usec delay use. */
 
 void DelaySec(int sec)
 {   uReg32 Delay;
@@ -131,26 +139,39 @@ T2CONbits.T32 = 1; /* to increment every instruction cycle */
 IFS0bits.T3IF = 0; /* Clear the Timer3 Interrupt Flag */
 IEC0bits.T3IE = 0; /* Disable Timer3 Interrup Service Routine */
 
-//U1RTS_LAT = 1;  /* Basically we waiting the reading character(s). */
+U1RTS_LAT = 0;  /* Basically we waiting the reading character(s). */
 
-U1RTS_LAT = 0;  /* @TODO WARNING @We probe the RTS line now. */
-U1TXD_LAT = 1; /* @TODO WARNING @Probe*/
+char WELCOME_MESSAGE[20] = "Welcome !\n\r\0";
+char NOCOM[20] = "No such command!\n\r\0";
 
-while (1)
-{
-    
-}
+LATCbits.LATC14 = 0;
 
 while(1)
 {
     char Command;
+
+    WriteString(WELCOME_MESSAGE);
+
     loop_001:
+
+#if defined (LED_BLINKING)
+    LATEbits.LATE4 = 1;
+    DelayuSec(200);
+    LATEbits.LATE4 = 0;
+//    DelayuSec(1000);
+#endif
+        if (WaitCommand() > 0)
+            WriteString(CommandBuf);
+        else
+            WriteString(NOCOM);
+        
+    goto loop_001;
+
 /*    sprintf(HW, "SourceAddr: %i %i %i", SourceAddr.Val[0], SourceAddr.Val[1],
         SourceAddr.Val[2]);*/
-    DelayuSec(1);
+    DelaySec(1);
     WriteString(HW);
 
-    goto loop_001;
     GetChar(&Command);
     switch(Command)
     {
@@ -319,6 +340,28 @@ while(1)
 return 0;
 }
 
+int WaitCommand()
+{   int i; char next_char; int result;
+    for (i = 0; i < MAX_COMMAND_SIZE; i++)
+    {
+        GetChar(&next_char);
+        if ((next_char == '\n') || (next_char == '\r'))
+        {
+            if (i == 0) return 0; /* "\n" "\r" eliminate if press alone, and
+                                   * return with 0
+                                   */ 
+            else
+            {
+                CommandBuf[i] = '\0';
+                return i;   // return with next command size.
+            };
+        } else
+        {   // normal character intake.
+            CommandBuf[i] = next_char;
+        }
+    }
+return -1;  // if MAX_COMMAND_SIZE reached...
+}
 
 /******************************************************************************/
 void ReadPM(char * ptrData, uReg32 SourceAddr)
@@ -406,13 +449,13 @@ void WriteString(char* str)
 {
     int i = 0;
     while (!(U1STAbits.RIDLE));
-    U1RTS_LAT = 0; /* Set RS485 port to transmit state. */
+    U1RTS_LAT = 1; /* Set RS485 port to transmit state. */
     while (str[i] != '\0')
     {
         PutChar(str[i++]);
     }
     while (!U1STAbits.TRMT);
-    U1RTS_LAT = 1;  /* Then Set RS485 port to receive state. (High impedance line.)*/
+    U1RTS_LAT = 0;  /* Then reset RS485 port to receive state. (High impedance line.)*/
 
 }
 /******************************************************************************/
@@ -423,7 +466,7 @@ int DataCount;
 
     /* While until Receiver Idle Bit*/
     while (!(U1STAbits.RIDLE));
-    U1RTS_LAT = 0; /* Set RS485 port to transmit state. */
+    U1RTS_LAT = 1; /* Set RS485 port to transmit state. */
 
     for(DataCount = 0; DataCount < Size; DataCount++)
     {
@@ -431,7 +474,7 @@ int DataCount;
     }
 
     while (!U1STAbits.TRMT);
-    U1RTS_LAT = 1;  /* Then Set RS485 port to receive state. (High impedance line.)*/
+    U1RTS_LAT = 0;  /* Then Reset RS485 port to receive state. (High impedance line.)*/
 
 }
 /******************************************************************************/
@@ -442,7 +485,10 @@ void PutChar(char Char)
     /* Waiting for transmit shift register empty, and receiver idle bit*/
 //    while(!((U1STAbits.TRMT) && (U1STAbits.RIDLE)));
     while (!U1STAbits.TRMT);
+    U1RTS_LAT = 1; /* Set RS485 port to transmit state. */
     U1TXREG = Char;
+    while (!U1STAbits.TRMT);
+    U1RTS_LAT = 0;  /* Then Reset RS485 port to receive state. (High impedance line.)*/
 }
 /******************************************************************************/
 void GetChar(char * ptrChar)
@@ -457,23 +503,15 @@ void GetChar(char * ptrChar)
         }*/
 
         /* check for receive errors */
-        if(U1STAbits.FERR == 1)
-        {
-        continue;
-        }
+        if(U1STAbits.FERR == 1) { continue; }
 
         /* must clear the overrun error to keep uart receiving */
-        if(U1STAbits.OERR == 1)
-        {
-        U1STAbits.OERR = 0;
-        continue;
-        }
+        if(U1STAbits.OERR == 1) { U1STAbits.OERR = 0; continue; }
 
         /* get the data */
         if(U1STAbits.URXDA == 1)
         {
 //        T2CONbits.TON=0; /* Disable timer countdown */
-
         * ptrChar = U1RXREG;
         break;
         }
