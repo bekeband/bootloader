@@ -32,7 +32,6 @@
 
 .global _LoadAddr,_WriteMem,_WriteLatch,_ReadLatch,_ResetDevice	;C called
 
-
 _LoadAddr:	;W0=NVMADRU,W1=NVMADR - no return values
 	mov	W0,NVMADRU
 	mov	W1,NVMADR

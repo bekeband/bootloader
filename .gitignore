@@ -1,0 +1,6 @@
+#Object files
+*.o
+#Produced files hex, elf, map format
+*.hex
+*.elf
+*.map

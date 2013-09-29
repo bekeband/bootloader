@@ -13,6 +13,7 @@
 
 
 #define DEBUG 1
+#define SIMULATE 1
 
 /******************************************************************************/
 /* Global Variable Declaration                                                */
