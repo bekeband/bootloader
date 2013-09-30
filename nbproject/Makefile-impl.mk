@@ -27,7 +27,7 @@ CLEAN_SUBPROJECTS=${CLEAN_SUBPROJECTS_${SUBPROJECTS}}
 PROJECTNAME=bootloader
 
 # Active Configuration
-DEFAULTCONF=Simulate
+DEFAULTCONF=default
 CONF=${DEFAULTCONF}
 
 # All Configurations

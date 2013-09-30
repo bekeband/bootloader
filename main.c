@@ -14,6 +14,7 @@
 
 #define DEBUG 1
 #define SIMULATE 1
+#define ASCII_MODE 0
 
 /******************************************************************************/
 /* Global Variable Declaration                                                */
@@ -147,6 +148,7 @@ U1RTS_LAT = 0;  /* Basically we waiting the reading character(s). */
 
 char WELCOME_MESSAGE[20] = "Welcome !\n\r\0";
 char NOCOM[20] = "No such command!\n\r\0";
+/* Talán nem írtam bele valamit?*/
 
 LATCbits.LATC14 = 0;
 
