@@ -148,29 +148,28 @@ U1RTS_LAT = 0;  /* Basically we waiting the reading character(s). */
 
 char WELCOME_MESSAGE[20] = "Welcome !\n\r\0";
 char NOCOM[20] = "No such command!\n\r\0";
-/* Talán nem írtam bele valamit?*/
 
 LATCbits.LATC14 = 0;
 
 while(1)
 {
-    char* token;
     char Command;
-
-    WriteString(WELCOME_MESSAGE);
-
-    loop_001:
+    char* token;
 
 #if defined (LED_BLINKING)
     LATEbits.LATE4 = 1;
-    DelayuSec(200);
+    DelayuSec(2000);
     LATEbits.LATE4 = 0;
-//    DelayuSec(1000);
-#endif  /* Read command until enter character. */
+#endif
+
+/*    WriteString(WELCOME_MESSAGE);
+
+    loop_001:
+
         if (WaitCommand() > 0)
-        {
+        {*/
             /* tokenize to the first space character.*/
-            if ((token = strtok(CommandBuf, " ")) != NULL)
+/*            if ((token = strtok(CommandBuf, " ")) != NULL)
             {
                 if (!strcmp(token, "rdid"))
                 {
@@ -189,26 +188,30 @@ while(1)
             }
             else WriteString("No token. \n\r\0");
 
-/*            if ((strcmp(CommandBuf, "RPM")) != NULL)
-            {main.c:194:14: error: 'Command' undeclared (first use in this function)
+            if ((strcmp(CommandBuf, "RPM")) != NULL)
+            {
                 WriteString("Read PM\n\r\0");
             } else
             {
                 WriteString(CommandBuf);
-            }*/
+            }
         }
         else
         {
             WriteString(NOCOM);
         };
-    goto loop_001;
+    goto loop_001;*/
 
 /*    sprintf(HW, "SourceAddr: %i %i %i", SourceAddr.Val[0], SourceAddr.Val[1],
         SourceAddr.Val[2]);*/
-    DelaySec(1);
-    WriteString(HW);
+/*    DelaySec(1);
+    WriteString(HW);*/
 
-    GetChar(&Command);
+//    GetChar(&Command);
+     if (WaitCommand() > 0)
+    {
+         WriteString(WELCOME_MESSAGE);
+    }
     switch(Command)
     {
         case COMMAND_READ_PM:
@@ -566,7 +569,14 @@ void GetChar(char * ptrChar)
         if(U1STAbits.URXDA == 1)
         {
 //        T2CONbits.TON=0; /* Disable timer countdown */
-        * ptrChar = U1RXREG;
+#if defined (LED_BLINKING)
+    LATEbits.LATE4 = 1;
+#endif
+    * ptrChar = U1RXREG;
+#if defined (LED_BLINKING)
+    DelayuSec(2);
+    LATEbits.LATE4 = 0;
+#endif  /* Read command until enter character. */
         break;
         }
     }
